@@ -36,8 +36,8 @@ class EmailService {
 
             <div style="background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
               <h4>Academic Information:</h4>
-              <p><strong>Matriculation:</strong> ${admission.matriculationBoard} (${admission.matriculationYear}) - ${admission.matriculationGrade}</p>
-              <p><strong>Intermediate:</strong> ${admission.intermediateBoard} (${admission.intermediateYear}) - ${admission.intermediateGrade}</p>
+              <p><strong>Matriculation:</strong> ${admission.matriculationBoard} (${admission.matriculationYear}) - ${admission.matriculationGrade}${admission.matriculationMarks && admission.matriculationTotalMarks ? ` (${admission.matriculationMarks}/${admission.matriculationTotalMarks})` : ''}</p>
+              <p><strong>Intermediate:</strong> ${admission.intermediateBoard} (${admission.intermediateYear}) - ${admission.intermediateGrade}${admission.intermediateMarks && admission.intermediateTotalMarks ? ` (${admission.intermediateMarks}/${admission.intermediateTotalMarks})` : ''}</p>
               <p><strong>Law Test Score:</strong> ${admission.lawTestScore}/100</p>
             </div>
 

@@ -705,13 +705,13 @@ class PDFService {
                         <td><strong>Matriculation (SSC)</strong></td>
                         <td>${admission.matriculationBoard}</td>
                         <td>${admission.matriculationYear}</td>
-                        <td><strong>${admission.matriculationGrade}</strong>${admission.matriculationMarks ? ` (${admission.matriculationMarks})` : ''}</td>
+                        <td><strong>${admission.matriculationGrade}</strong>${admission.matriculationMarks && admission.matriculationTotalMarks ? ` (${admission.matriculationMarks}/${admission.matriculationTotalMarks})` : ''}</td>
                       </tr>
                       <tr>
                         <td><strong>Intermediate (HSSC)</strong></td>
                         <td>${admission.intermediateBoard}</td>
                         <td>${admission.intermediateYear}</td>
-                        <td><strong>${admission.intermediateGrade}</strong>${admission.intermediateMarks ? ` (${admission.intermediateMarks})` : ''}</td>
+                        <td><strong>${admission.intermediateGrade}</strong>${admission.intermediateMarks && admission.intermediateTotalMarks ? ` (${admission.intermediateMarks}/${admission.intermediateTotalMarks})` : ''}</td>
                       </tr>
                       ${admission.otherQualification ? `
                       <tr>

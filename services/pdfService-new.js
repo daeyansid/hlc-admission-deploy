@@ -109,11 +109,11 @@ class PDFService {
           <div class="section-title">Academic Information</div>
           <div class="field">
             <span class="field-label">Matriculation:</span>
-            <span class="field-value">${admission.matriculationBoard} (${admission.matriculationYear}) - ${admission.matriculationGrade}</span>
+            <span class="field-value">${admission.matriculationBoard} (${admission.matriculationYear}) - ${admission.matriculationGrade}${admission.matriculationMarks && admission.matriculationTotalMarks ? ` (${admission.matriculationMarks}/${admission.matriculationTotalMarks})` : ''}</span>
           </div>
           <div class="field">
             <span class="field-label">Intermediate:</span>
-            <span class="field-value">${admission.intermediateBoard} (${admission.intermediateYear}) - ${admission.intermediateGrade}</span>
+            <span class="field-value">${admission.intermediateBoard} (${admission.intermediateYear}) - ${admission.intermediateGrade}${admission.intermediateMarks && admission.intermediateTotalMarks ? ` (${admission.intermediateMarks}/${admission.intermediateTotalMarks})` : ''}</span>
           </div>
           <div class="field">
             <span class="field-label">Law Test Score:</span>

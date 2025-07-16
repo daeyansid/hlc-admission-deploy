@@ -75,6 +75,11 @@ const admissionSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  matriculationTotalMarks: {
+    type: Number,
+    required: true,
+    trim: true
+  },
 
   // Academic Information - Intermediate
   intermediateBoard: {
@@ -95,6 +100,11 @@ const admissionSchema = new mongoose.Schema({
   },
   intermediateMarks: {
     type: String,
+    required: true,
+    trim: true
+  },
+  intermediateTotalMarks: {
+    type: Number,
     required: true,
     trim: true
   },
