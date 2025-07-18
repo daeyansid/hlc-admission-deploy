@@ -781,7 +781,7 @@ class PDFService {
             <div class="declaration-text">
               I hereby declare that the information provided above is true and correct to the best of my knowledge and belief. 
               I understand that any false information or concealment of facts may lead to the cancellation of my admission and 
-              legal action against me. I also agree to abide by the rules and regulations of HLC Law College.
+              legal action against me. I also agree to abide by the rules and regulations of Hyderabad Law College.
             </div>
           </div>
           
@@ -798,7 +798,7 @@ class PDFService {
           
           <div class="footer">
             <div class="footer-content">
-              <h3>🏛️ HLC Law College - Admission Office</h3>
+              <h3>🏛️ Hyderabad Law College - Admission Office</h3>
               <p>📍 Constitutional Avenue, Legal District, Islamabad, Pakistan</p>
               <p>📞 Phone: +92 51 123 4567 | 📧 Email: admissions@hlc.edu.pk</p>
               <p>🌐 Website: www.hlc.edu.pk | 📱 WhatsApp: +92 300 123 4567</p>

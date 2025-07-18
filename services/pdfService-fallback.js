@@ -16,7 +16,9 @@ class FallbackPDFService {
   async generateAndSavePDF(admission, filePath) {
     try {
       console.log(`Using fallback PDF service for application: ${admission.applicationId}`);
-      const htmlBuffer = await this.generateAdmissionPDF(admission);
+      
+      // Create a proper text-based content that can be served as PDF
+      const textContent = this.generatePDFCompatibleContent(admission);
       
       // Ensure directory exists
       const dir = path.dirname(filePath);
@@ -24,22 +26,138 @@ class FallbackPDFService {
         fs.mkdirSync(dir, { recursive: true });
       }
       
-      // Save as HTML file with PDF extension (temporary solution)
+      // Save as text file but with proper PDF headers to make it downloadable
+      const pdfCompatibleContent = this.addPDFHeaders(textContent);
+      fs.writeFileSync(filePath, pdfCompatibleContent);
+      
+      // Also create an HTML version for reference
+      const htmlContent = this.generateHTMLTemplate(admission);
       const htmlFilePath = filePath.replace('.pdf', '.html');
-      fs.writeFileSync(htmlFilePath, htmlBuffer);
+      fs.writeFileSync(htmlFilePath, htmlContent);
       
-      // Also create a simple text file with PDF extension for download purposes
-      const textContent = this.generateTextTemplate(admission);
-      fs.writeFileSync(filePath, textContent);
-      
-      console.log(`Fallback PDF saved as text file: ${filePath}`);
-      console.log(`HTML version saved as: ${htmlFilePath}`);
+      console.log(`Fallback content saved as: ${filePath}`);
+      console.log(`HTML reference saved as: ${htmlFilePath}`);
       
       return filePath;
     } catch (error) {
       console.error('Error saving fallback PDF:', error);
       throw error;
     }
+  }
+
+  addPDFHeaders(textContent) {
+    // Create a simple PDF-like structure that browsers can handle
+    return `%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+>>
+endobj
+
+4 0 obj
+<<
+/Length ${textContent.length + 100}
+>>
+stream
+BT
+/F1 12 Tf
+50 750 Td
+${textContent.split('\n').map(line => `(${line.replace(/[()\\]/g, '\\$&')}) Tj 0 -15 Td`).join('\n')}
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000244 00000 n 
+0000000400 00000 n 
+trailer
+<<
+/Size 6
+/Root 1 0 R
+>>
+startxref
+477
+%%EOF`;
+  }
+
+  generatePDFCompatibleContent(admission) {
+    const submissionDate = new Date(admission.submissionDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    return `Hyderabad Law College - Admission Application
+
+Application ID: ${admission.applicationId}
+Submitted: ${submissionDate}
+
+PERSONAL INFORMATION
+Name: ${admission.candidateName || 'N/A'}
+Surname: ${admission.surname || 'N/A'}
+Email: ${admission.email || 'N/A'}
+Guardian: ${admission.guardianName || 'N/A'}
+Date of Birth: ${admission.dateOfBirth || 'N/A'}
+CNIC: ${admission.cnicNumber || 'N/A'}
+Gender: ${admission.gender || 'N/A'}
+Domicile: ${admission.domicileDistrict || 'N/A'}
+Contact: ${admission.contactNumber || 'N/A'}
+Address: ${admission.postalAddress || 'N/A'}
+
+ACADEMIC INFORMATION
+Matriculation: ${admission.matriculationBoard || 'N/A'} (${admission.matriculationYear || 'N/A'})
+Matriculation Grade: ${admission.matriculationGrade || 'N/A'}
+Matriculation Marks: ${admission.matriculationMarks || 'N/A'}/${admission.matriculationTotalMarks || 'N/A'}
+
+Intermediate: ${admission.intermediateBoard || 'N/A'} (${admission.intermediateYear || 'N/A'})
+Intermediate Grade: ${admission.intermediateGrade || 'N/A'}
+Intermediate Marks: ${admission.intermediateMarks || 'N/A'}/${admission.intermediateTotalMarks || 'N/A'}
+
+Academic Qualification: ${admission.academicQualification || 'N/A'}
+Other Qualification: ${admission.otherQualification || 'N/A'}
+Law Test Score: ${admission.lawTestScore || 'N/A'}/100
+
+PAYMENT INFORMATION
+Payment Transaction: ${admission.paymentTransaction || 'N/A'}
+
+Generated on: ${new Date().toLocaleString()}
+HLC Admission Portal`;
   }
 
   generateTextTemplate(admission) {
@@ -50,7 +168,7 @@ class FallbackPDFService {
     });
 
     return `
-HLC LAW COLLEGE
+Hyderabad Law College
 ADMISSION APPLICATION
 
 Application ID: ${admission.applicationId}
@@ -137,7 +255,7 @@ HLC Admission Portal
       </head>
       <body>
         <div class="header">
-          <h1>HLC Law College</h1>
+          <h1>Hyderabad Law College</h1>
           <h2>Admission Application</h2>
           <p><strong>Application ID:</strong> ${admission.applicationId}</p>
           <p><strong>Submitted:</strong> ${submissionDate}</p>

@@ -2,8 +2,9 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-// Import fallback service
+// Import services
 const fallbackPDFService = require('./pdfService-fallback');
+const productionPDFService = require('./pdfService-production');
 
 class PDFService {
   async generateAdmissionPDF(admission) {
@@ -86,6 +87,15 @@ class PDFService {
   }
 
   async generateAndSavePDF(admission, filePath) {
+    // First try production PDF service (html-pdf-node)
+    try {
+      console.log('Attempting PDF generation with production service (html-pdf-node)...');
+      return await productionPDFService.generateAndSavePDF(admission, filePath);
+    } catch (productionError) {
+      console.error('Production PDF service failed:', productionError);
+      console.log('Falling back to Puppeteer...');
+    }
+
     // Check if fallback mode is forced
     if (process.env.FORCE_FALLBACK_PDF === 'true') {
       console.log('Forced fallback mode enabled, using fallback PDF service');
@@ -93,7 +103,7 @@ class PDFService {
     }
 
     try {
-      console.log(`Starting PDF generation for application: ${admission.applicationId}`);
+      console.log(`Starting Puppeteer PDF generation for application: ${admission.applicationId}`);
       console.log(`Target file path: ${filePath}`);
       
       const pdfBuffer = await this.generateAdmissionPDF(admission);
@@ -122,14 +132,14 @@ class PDFService {
       return filePath;
     } catch (error) {
       console.error('Error saving PDF with Puppeteer:', error);
-      console.log('Falling back to alternative PDF generation method...');
+      console.log('Both production service and Puppeteer failed, using final fallback...');
       
       try {
-        // Use fallback service
+        // Use fallback service as last resort
         return await fallbackPDFService.generateAndSavePDF(admission, filePath);
       } catch (fallbackError) {
-        console.error('Fallback PDF generation also failed:', fallbackError);
-        throw new Error(`Both primary and fallback PDF generation failed. Primary: ${error.message}, Fallback: ${fallbackError.message}`);
+        console.error('All PDF generation methods failed:', fallbackError);
+        throw new Error(`All PDF generation methods failed. Production: ${productionError?.message || 'Unknown'}, Puppeteer: ${error.message}, Fallback: ${fallbackError.message}`);
       }
     }
   }

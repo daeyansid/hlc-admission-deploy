@@ -63,7 +63,7 @@ class PDFService {
       </head>
       <body>
         <div class="header">
-          <h1>HLC Law College</h1>
+          <h1>Hyderabad Law College</h1>
           <h2>Admission Application</h2>
           <p><strong>Application ID:</strong> ${admission.applicationId}</p>
           <p><strong>Submitted:</strong> ${submissionDate}</p>
