@@ -2,21 +2,56 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
+// Import fallback service
+const fallbackPDFService = require('./pdfService-fallback');
+
 class PDFService {
   async generateAdmissionPDF(admission) {
     let browser;
     try {
       const htmlContent = await this.generateHTMLTemplate(admission);
       
+      // Enhanced Puppeteer configuration for production environments
+      const puppeteerOptions = {
+        headless: 'new', // Use new headless mode
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process', // Important for some hosting environments
+          '--disable-gpu',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
+        ]
+      };
+
+      // Add executablePath for some hosting environments if needed
+      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      }
+
+      console.log('Launching Puppeteer with options:', puppeteerOptions);
+      
       // Launch Puppeteer
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      })
+      browser = await puppeteer.launch(puppeteerOptions);
       const page = await browser.newPage();
       
+      // Set viewport and content
+      await page.setViewport({ width: 1200, height: 800 });
+      
+      console.log('Setting HTML content for PDF generation...');
+      
       // Set content and wait for it to load
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+      await page.setContent(htmlContent, { 
+        waitUntil: 'networkidle0',
+        timeout: 30000 // 30 second timeout
+      });
+      
+      console.log('Generating PDF...');
       
       // Generate PDF
       const pdfBuffer = await page.pdf({
@@ -27,37 +62,75 @@ class PDFService {
           right: '15px',
           bottom: '15px',
           left: '15px'
-        }
+        },
+        timeout: 30000 // 30 second timeout
       });
+      
+      console.log('PDF generated successfully');
       
       return pdfBuffer;
     } catch (error) {
       console.error('Error generating PDF:', error);
-      throw error;
+      console.error('Error stack:', error.stack);
+      throw new Error(`PDF generation failed: ${error.message}`);
     } finally {
       if (browser) {
-        await browser.close();
+        try {
+          await browser.close();
+          console.log('Browser closed successfully');
+        } catch (closeError) {
+          console.error('Error closing browser:', closeError);
+        }
       }
     }
   }
 
   async generateAndSavePDF(admission, filePath) {
+    // Check if fallback mode is forced
+    if (process.env.FORCE_FALLBACK_PDF === 'true') {
+      console.log('Forced fallback mode enabled, using fallback PDF service');
+      return await fallbackPDFService.generateAndSavePDF(admission, filePath);
+    }
+
     try {
+      console.log(`Starting PDF generation for application: ${admission.applicationId}`);
+      console.log(`Target file path: ${filePath}`);
+      
       const pdfBuffer = await this.generateAdmissionPDF(admission);
       
       // Ensure directory exists
       const dir = path.dirname(filePath);
+      console.log(`Ensuring directory exists: ${dir}`);
+      
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
+        console.log(`Created directory: ${dir}`);
       }
       
       // Save PDF to file
+      console.log(`Writing PDF buffer to file: ${filePath}`);
       fs.writeFileSync(filePath, pdfBuffer);
+      
+      // Verify file was created
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        console.log(`PDF saved successfully. File size: ${stats.size} bytes`);
+      } else {
+        throw new Error('PDF file was not created successfully');
+      }
       
       return filePath;
     } catch (error) {
-      console.error('Error saving PDF:', error);
-      throw error;
+      console.error('Error saving PDF with Puppeteer:', error);
+      console.log('Falling back to alternative PDF generation method...');
+      
+      try {
+        // Use fallback service
+        return await fallbackPDFService.generateAndSavePDF(admission, filePath);
+      } catch (fallbackError) {
+        console.error('Fallback PDF generation also failed:', fallbackError);
+        throw new Error(`Both primary and fallback PDF generation failed. Primary: ${error.message}, Fallback: ${fallbackError.message}`);
+      }
     }
   }
 
@@ -82,20 +155,42 @@ class PDFService {
           
           return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
         }
+        console.log(`Image not found or invalid path: ${imagePath}`);
         return null;
       } catch (error) {
         console.error('Error converting image to base64:', error);
+        console.error('Image path:', imagePath);
         return null;
       }
     };
 
+    console.log('Converting images to base64...');
     const profileImageBase64 = getImageBase64(admission.profileImage);
     const lawTestImageBase64 = getImageBase64(admission.lawTestScoreImage);
     const paymentImageBase64 = getImageBase64(admission.paymentTransactionImage);
 
-    // Add logo image (you need to specify the path to the logo file)
-    const logoPath = path.join(__dirname, '../public/assets/hlc-logo.png');
-    const logoBase64 = getImageBase64(logoPath);
+    // Fix logo path - check multiple possible locations
+    let logoBase64 = null;
+    const possibleLogoPaths = [
+      path.join(__dirname, '../public/hlc-logo.png'),
+      path.join(__dirname, '../../public/hlc-logo.png'),
+      path.join(__dirname, '../public/assets/hlc-logo.png'),
+      path.join(process.cwd(), 'public/hlc-logo.png'),
+      path.join(process.cwd(), 'server/public/hlc-logo.png')
+    ];
+    
+    for (const logoPath of possibleLogoPaths) {
+      console.log(`Checking logo path: ${logoPath}`);
+      if (fs.existsSync(logoPath)) {
+        logoBase64 = getImageBase64(logoPath);
+        console.log(`Logo found at: ${logoPath}`);
+        break;
+      }
+    }
+    
+    if (!logoBase64) {
+      console.log('Logo not found in any expected location, proceeding without logo');
+    }
     
     return `
       <!DOCTYPE html>
