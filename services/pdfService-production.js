@@ -9,29 +9,43 @@ class ProductionPDFService {
       
       const htmlContent = await this.generateHTMLTemplate(admission);
       
-      // Configure html-pdf-node options
+      // Configure html-pdf-node options with enhanced settings for production
       const options = {
         format: 'A4',
         border: {
-          top: '10px',
-          right: '15px',
-          bottom: '15px',
-          left: '15px'
+          top: '10mm',
+          right: '15mm',
+          bottom: '15mm',
+          left: '15mm'
         },
         type: 'pdf',
         quality: '75',
-        timeout: 30000
+        timeout: 60000, // Increased timeout
+        printBackground: true, // Ensure background colors/images are printed
+        preferCSSPageSize: true,
+        displayHeaderFooter: false,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu'
+        ]
       };
 
       const file = { content: htmlContent };
       
-      console.log('Converting HTML to PDF...');
+      console.log('Converting HTML to PDF with enhanced options...');
+      console.log('HTML content length:', htmlContent.length);
+      
       const pdfBuffer = await htmlPdf.generatePdf(file, options);
       
       console.log('PDF generated successfully with html-pdf-node');
+      console.log('PDF buffer size:', pdfBuffer.length);
+      
       return pdfBuffer;
     } catch (error) {
       console.error('Error generating PDF with html-pdf-node:', error);
+      console.error('Error details:', error.stack);
       throw new Error(`Production PDF generation failed: ${error.message}`);
     }
   }
@@ -83,21 +97,55 @@ class ProductionPDFService {
       day: 'numeric'
     });
 
-    // Convert images to base64 for embedding
+    // Convert images to base64 for embedding - Enhanced for production
     const getImageBase64 = (imagePath) => {
       try {
-        if (imagePath && fs.existsSync(imagePath)) {
-          const imageBuffer = fs.readFileSync(imagePath);
-          const ext = path.extname(imagePath).toLowerCase();
-          let mimeType = 'image/jpeg';
-          
-          if (ext === '.png') mimeType = 'image/png';
-          else if (ext === '.gif') mimeType = 'image/gif';
-          else if (ext === '.webp') mimeType = 'image/webp';
-          
-          return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+        console.log(`Attempting to convert image to base64: ${imagePath}`);
+        
+        if (!imagePath) {
+          console.log('No image path provided');
+          return null;
         }
-        return null;
+        
+        // Handle different path formats
+        let fullPath = imagePath;
+        if (!path.isAbsolute(imagePath)) {
+          fullPath = path.resolve(process.cwd(), imagePath);
+        }
+        
+        console.log(`Full image path: ${fullPath}`);
+        
+        if (!fs.existsSync(fullPath)) {
+          console.warn(`Image file not found: ${fullPath}`);
+          return null;
+        }
+        
+        const stats = fs.statSync(fullPath);
+        console.log(`Image file size: ${stats.size} bytes`);
+        
+        if (stats.size === 0) {
+          console.warn(`Image file is empty: ${fullPath}`);
+          return null;
+        }
+        
+        if (stats.size > 10 * 1024 * 1024) { // 10MB limit
+          console.warn(`Image file too large: ${fullPath} (${stats.size} bytes)`);
+          return null;
+        }
+        
+        const imageBuffer = fs.readFileSync(fullPath);
+        const ext = path.extname(fullPath).toLowerCase();
+        let mimeType = 'image/jpeg';
+        
+        if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.gif') mimeType = 'image/gif';
+        else if (ext === '.webp') mimeType = 'image/webp';
+        else if (ext === '.svg') mimeType = 'image/svg+xml';
+        
+        const base64String = imageBuffer.toString('base64');
+        console.log(`Successfully converted image to base64. Size: ${base64String.length} characters`);
+        
+        return `data:${mimeType};base64,${base64String}`;
       } catch (error) {
         console.error(`Error converting image to base64: ${imagePath}`, error);
         return null;
@@ -109,25 +157,56 @@ class ProductionPDFService {
     const lawTestImageBase64 = getImageBase64(admission.lawTestScoreImage);
     const paymentImageBase64 = getImageBase64(admission.paymentTransactionImage);
 
-    // Try to get logo
+    // Try to get logo - Enhanced path resolution for production
     let logoBase64 = null;
     const possibleLogoPaths = [
+      // Relative to server directory
       path.join(__dirname, '../public/hlc-logo.png'),
       path.join(__dirname, '../../public/hlc-logo.png'),
+      // Relative to project root
       path.join(process.cwd(), 'public/hlc-logo.png'),
-      path.join(process.cwd(), 'server/public/hlc-logo.png')
+      path.join(process.cwd(), 'server/public/hlc-logo.png'),
+      // Absolute paths for different deployment scenarios
+      path.resolve(process.cwd(), '../public/hlc-logo.png'),
+      path.resolve(process.cwd(), './public/hlc-logo.png'),
+      // Alternative extensions
+      path.join(__dirname, '../public/hlc-logo.jpg'),
+      path.join(__dirname, '../../public/hlc-logo.jpg'),
+      path.join(process.cwd(), 'public/hlc-logo.jpg'),
+      // Check in uploads directory as fallback
+      path.join(process.cwd(), 'server/uploads/hlc-logo.png'),
+      path.join(process.cwd(), 'uploads/hlc-logo.png')
     ];
     
+    console.log('Searching for logo in multiple locations...');
     for (const logoPath of possibleLogoPaths) {
+      console.log(`Checking logo path: ${logoPath}`);
       if (fs.existsSync(logoPath)) {
         logoBase64 = getImageBase64(logoPath);
-        console.log(`Logo found at: ${logoPath}`);
-        break;
+        if (logoBase64) {
+          console.log(`Logo found and converted successfully at: ${logoPath}`);
+          break;
+        } else {
+          console.log(`Logo found but conversion failed at: ${logoPath}`);
+        }
       }
     }
     
     if (!logoBase64) {
-      console.warn('Logo not found, proceeding without logo');
+      console.warn('Logo not found in any location, proceeding without logo');
+      console.log('Current working directory:', process.cwd());
+      console.log('__dirname:', __dirname);
+      
+      // List contents of possible directories for debugging
+      try {
+        const publicDir = path.join(process.cwd(), 'public');
+        if (fs.existsSync(publicDir)) {
+          const publicContents = fs.readdirSync(publicDir);
+          console.log('Contents of public directory:', publicContents);
+        }
+      } catch (err) {
+        console.log('Could not read public directory');
+      }
     }
 
     return `
@@ -145,17 +224,18 @@ class ProductionPDFService {
     }
     
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       line-height: 1.6;
-      color: #333;
-      background-color: #fff;
+      color: #333333;
+      background-color: #ffffff;
       padding: 20px;
+      font-size: 12px;
     }
     
     .container {
       max-width: 800px;
       margin: 0 auto;
-      background: white;
+      background: #ffffff;
     }
     
     .header {
@@ -169,18 +249,23 @@ class ProductionPDFService {
       max-width: 80px;
       height: auto;
       margin-bottom: 10px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
     
     .header h1 {
       color: #4F46E5;
-      font-size: 28px;
+      font-size: 24px;
       margin-bottom: 5px;
+      font-weight: bold;
     }
     
     .header h2 {
-      color: #666;
-      font-size: 20px;
+      color: #666666;
+      font-size: 18px;
       margin-bottom: 15px;
+      font-weight: normal;
     }
     
     .application-info {
@@ -188,25 +273,29 @@ class ProductionPDFService {
       padding: 10px;
       border-radius: 5px;
       margin-bottom: 10px;
+      border: 1px solid #e0e7ff;
     }
     
     .application-info p {
       margin: 5px 0;
       font-weight: bold;
+      color: #4F46E5;
     }
     
     .section {
       margin-bottom: 25px;
+      page-break-inside: avoid;
       break-inside: avoid;
     }
     
     .section-title {
       background-color: #4F46E5;
-      color: white;
+      color: #ffffff;
       padding: 12px 15px;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: bold;
       margin-bottom: 15px;
+      border-radius: 3px;
     }
     
     .field-grid {
@@ -222,15 +311,18 @@ class ProductionPDFService {
     
     .field-label {
       font-weight: bold;
-      color: #555;
+      color: #555555;
       display: block;
       margin-bottom: 3px;
+      font-size: 11px;
     }
     
     .field-value {
-      color: #333;
+      color: #333333;
       padding: 5px 0;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid #eeeeee;
+      font-size: 12px;
+      min-height: 20px;
     }
     
     .image-section {
@@ -239,35 +331,66 @@ class ProductionPDFService {
     
     .image-container {
       text-align: center;
-      margin: 10px 0;
+      margin: 15px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     
     .uploaded-image {
       max-width: 150px;
       max-height: 150px;
-      border: 1px solid #ddd;
+      border: 1px solid #dddddd;
       border-radius: 5px;
       margin: 5px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
     
     .image-label {
       font-weight: bold;
       margin-bottom: 10px;
       display: block;
+      color: #4F46E5;
+      font-size: 12px;
     }
     
     .footer {
       text-align: center;
       margin-top: 40px;
       padding-top: 20px;
-      border-top: 1px solid #ddd;
-      color: #666;
-      font-size: 12px;
+      border-top: 1px solid #dddddd;
+      color: #666666;
+      font-size: 10px;
     }
     
+    /* Ensure print compatibility */
     @media print {
-      body { print-color-adjust: exact; }
-      .section { page-break-inside: avoid; }
+      body { 
+        print-color-adjust: exact; 
+        -webkit-print-color-adjust: exact;
+      }
+      .section { 
+        page-break-inside: avoid; 
+        break-inside: avoid;
+      }
+      .image-container {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
+    
+    /* Grid fallback for older PDF generators */
+    @supports not (display: grid) {
+      .field-grid {
+        display: table;
+        width: 100%;
+      }
+      .field-grid .field {
+        display: table-cell;
+        width: 50%;
+        padding-right: 15px;
+      }
     }
   </style>
 </head>
