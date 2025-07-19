@@ -366,17 +366,22 @@ class PDFService {
         
         .main-content {
         padding: 30px;
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 30px;
+        display: table;
+        width: 100%;
+        table-layout: fixed;
         }
         
         .left-column {
-        flex: 1;
+        display: table-cell;
+        width: 65%;
+        vertical-align: top;
+        padding-right: 20px;
         }
         
         .right-column {
-        position: relative;
+        display: table-cell;
+        width: 35%;
+        vertical-align: top;
         }
         
         .section {
@@ -385,6 +390,7 @@ class PDFService {
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         overflow: hidden;
+        page-break-inside: avoid;
         }
         
         .section-header {
@@ -402,19 +408,28 @@ class PDFService {
         }
         
         .field-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        display: table;
+        width: 100%;
         margin-bottom: 16px;
         }
         
-        .field-grid.single {
-        grid-template-columns: 1fr;
+        .field-grid .field {
+        display: table-cell;
+        width: 50%;
+        padding-right: 20px;
+        vertical-align: top;
+        }
+        
+        .field-grid.single .field {
+        display: block;
+        width: 100%;
+        padding-right: 0;
         }
         
         .field {
         border-bottom: 1px solid #e2e8f0;
         padding-bottom: 12px;
+        margin-bottom: 16px;
         }
         
         .field-label {
@@ -529,18 +544,20 @@ class PDFService {
         }
         
         .document-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        display: table;
+        width: 100%;
         margin-top: 16px;
         }
         
         .document-item {
+        display: table-cell;
+        width: 50%;
         background: white;
         padding: 16px;
         border: 1px solid #e2e8f0;
         border-radius: 4px;
         text-align: center;
+        margin-right: 16px;
         }
         
         .document-label {
@@ -597,13 +614,14 @@ class PDFService {
         }
         
         .signature-section {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 40px;
+        display: table;
+        width: 100%;
         margin: 30px 0;
         }
         
         .signature-box {
+        display: table-cell;
+        width: 50%;
         text-align: center;
         padding: 16px;
         background: #f8fafc;
