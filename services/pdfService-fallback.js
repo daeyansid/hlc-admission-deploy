@@ -15,7 +15,11 @@ class FallbackPDFService {
 
   async generateAndSavePDF(admission, filePath) {
     try {
-      console.log(`Using fallback PDF service for application: ${admission.applicationId}`);
+      console.log('⚠️  ========================================');
+      console.log('⚠️  USING FALLBACK PDF SERVICE');
+      console.log('⚠️  This creates basic text-based PDFs only');
+      console.log('⚠️  ========================================');
+      console.log(`📋 Application: ${admission.applicationId}`);
       
       // Create a proper text-based content that can be served as PDF
       const textContent = this.generatePDFCompatibleContent(admission);
@@ -35,12 +39,13 @@ class FallbackPDFService {
       const htmlFilePath = filePath.replace('.pdf', '.html');
       fs.writeFileSync(htmlFilePath, htmlContent);
       
-      console.log(`Fallback content saved as: ${filePath}`);
-      console.log(`HTML reference saved as: ${htmlFilePath}`);
+      console.log(`📄 Fallback content saved as: ${filePath}`);
+      console.log(`🌐 HTML reference saved as: ${htmlFilePath}`);
+      console.log('⚠️  Note: This is a basic text-based PDF. For full formatting, the production or Puppeteer services should be used.');
       
       return filePath;
     } catch (error) {
-      console.error('Error saving fallback PDF:', error);
+      console.error('❌ Error saving fallback PDF:', error);
       throw error;
     }
   }

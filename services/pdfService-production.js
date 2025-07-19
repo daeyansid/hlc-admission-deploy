@@ -5,7 +5,8 @@ const path = require('path');
 class ProductionPDFService {
   async generateAdmissionPDF(admission) {
     try {
-      console.log('Starting PDF generation with html-pdf-node...');
+      console.log('🚀 Starting PDF generation with html-pdf-node...');
+      console.log(`📋 Application ID: ${admission.applicationId}`);
       
       const htmlContent = await this.generateHTMLTemplate(admission);
       
@@ -28,25 +29,44 @@ class ProductionPDFService {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--disable-web-security', // Allow cross-origin requests for images
+          '--allow-running-insecure-content'
         ]
       };
 
       const file = { content: htmlContent };
       
-      console.log('Converting HTML to PDF with enhanced options...');
-      console.log('HTML content length:', htmlContent.length);
+      console.log('🔄 Converting HTML to PDF with enhanced options...');
+      console.log(`📏 HTML content length: ${htmlContent.length} characters`);
       
       const pdfBuffer = await htmlPdf.generatePdf(file, options);
       
-      console.log('PDF generated successfully with html-pdf-node');
-      console.log('PDF buffer size:', pdfBuffer.length);
+      console.log('✅ PDF generated successfully with html-pdf-node');
+      console.log(`📦 PDF buffer size: ${pdfBuffer.length} bytes`);
+      
+      // Validate PDF buffer
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('Generated PDF buffer is empty');
+      }
+      
+      if (pdfBuffer.length < 1000) {
+        throw new Error(`Generated PDF buffer is too small (${pdfBuffer.length} bytes), likely corrupted`);
+      }
       
       return pdfBuffer;
     } catch (error) {
-      console.error('Error generating PDF with html-pdf-node:', error);
+      console.error('❌ Error generating PDF with html-pdf-node:', error);
       console.error('Error details:', error.stack);
-      throw new Error(`Production PDF generation failed: ${error.message}`);
+      
+      // Add more specific error information
+      if (error.message.includes('timeout')) {
+        throw new Error(`Production PDF generation timeout: ${error.message}`);
+      } else if (error.message.includes('memory')) {
+        throw new Error(`Production PDF generation memory error: ${error.message}`);
+      } else {
+        throw new Error(`Production PDF generation failed: ${error.message}`);
+      }
     }
   }
 

@@ -90,39 +90,48 @@ class PDFService {
     console.log(`Starting PDF generation for application: ${admission.applicationId}`);
     console.log(`Target file path: ${filePath}`);
     
-    // First try production PDF service (html-pdf-node)
+    // Check if fallback mode is forced
+    if (process.env.FORCE_FALLBACK_PDF === 'true') {
+      console.log('⚠️  Forced fallback mode enabled, using fallback PDF service');
+      return await fallbackPDFService.generateAndSavePDF(admission, filePath);
+    }
+    
+    // First try production PDF service (html-pdf-node) - this should be the primary method
     try {
-      console.log('Attempting PDF generation with production service (html-pdf-node)...');
+      console.log('🚀 Attempting PDF generation with production service (html-pdf-node)...');
       const result = await productionPDFService.generateAndSavePDF(admission, filePath);
       
       // Verify the generated file
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
-        console.log(`Production PDF generated successfully. File size: ${stats.size} bytes`);
+        console.log(`✅ Production PDF generated successfully. File size: ${stats.size} bytes`);
         
-        // Check if file size is reasonable (should be more than 10KB for a real PDF with content)
-        if (stats.size > 10000) {
+        // Check if file size is reasonable (should be more than 5KB for a real PDF with content)
+        if (stats.size > 5000) {
+          console.log('🎉 Production PDF service completed successfully!');
           return result;
         } else {
-          console.warn('Production PDF file size seems too small, trying Puppeteer fallback');
-          // Don't throw error, just continue to next method
+          console.warn('⚠️  Production PDF file size seems too small, trying Puppeteer fallback');
+          // Clean up the small file
+          try {
+            fs.unlinkSync(filePath);
+            console.log('🗑️  Removed invalid small PDF file');
+          } catch (unlinkError) {
+            console.warn('Could not remove small PDF file:', unlinkError.message);
+          }
         }
+      } else {
+        console.warn('⚠️  Production PDF file was not created, trying Puppeteer fallback');
       }
     } catch (productionError) {
-      console.error('Production PDF service failed:', productionError);
+      console.error('❌ Production PDF service failed:', productionError);
       console.error('Production error stack:', productionError.stack);
-      console.log('Falling back to Puppeteer...');
-    }
-
-    // Check if fallback mode is forced
-    if (process.env.FORCE_FALLBACK_PDF === 'true') {
-      console.log('Forced fallback mode enabled, using fallback PDF service');
-      return await fallbackPDFService.generateAndSavePDF(admission, filePath);
+      console.log('🔄 Falling back to Puppeteer...');
     }
 
     // Try Puppeteer as secondary option
     try {
-      console.log('Attempting PDF generation with Puppeteer...');
+      console.log('🎭 Attempting PDF generation with Puppeteer...');
       
       const pdfBuffer = await this.generateAdmissionPDF(admission);
       
@@ -142,27 +151,29 @@ class PDFService {
       // Verify file was created and check size
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
-        console.log(`Puppeteer PDF saved successfully. File size: ${stats.size} bytes`);
+        console.log(`✅ Puppeteer PDF saved successfully. File size: ${stats.size} bytes`);
         
         // Check if file size is reasonable
         if (stats.size < 1000) {
           throw new Error('Generated PDF file is too small, likely corrupted');
         }
+        
+        console.log('🎉 Puppeteer PDF service completed successfully!');
+        return filePath;
       } else {
         throw new Error('PDF file was not created successfully');
       }
-      
-      return filePath;
     } catch (puppeteerError) {
-      console.error('Puppeteer PDF generation failed:', puppeteerError);
+      console.error('❌ Puppeteer PDF generation failed:', puppeteerError);
       console.error('Puppeteer error stack:', puppeteerError.stack);
-      console.log('Falling back to text-based PDF service...');
+      console.log('🔄 Falling back to text-based PDF service...');
       
-      // Final fallback to text-based PDF
+      // Final fallback to text-based PDF (only as last resort)
       try {
+        console.log('⚠️  Using text-based fallback PDF service (basic formatting only)');
         return await fallbackPDFService.generateAndSavePDF(admission, filePath);
       } catch (fallbackError) {
-        console.error('All PDF generation methods failed:', fallbackError);
+        console.error('❌ All PDF generation methods failed:', fallbackError);
         throw new Error(`PDF generation failed with all methods. Last error: ${fallbackError.message}`);
       }
     }
